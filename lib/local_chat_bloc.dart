@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:vault_chat_app/rag/rag_repository.dart';
 import 'chat_message.dart';
 import 'local_llm_repository.dart';
 
@@ -62,8 +63,9 @@ class ClearConversationEvent extends LocalChatEvent {}
 // --- BLOC ---
 class LocalChatBloc extends Bloc<LocalChatEvent, LocalChatState> {
   final LocalLlmRepository repository;
+  final RagRepository ragRepository;
 
-  LocalChatBloc({required this.repository}) : super(const LocalChatState()) {
+  LocalChatBloc({required this.repository, required this.ragRepository}) : super(const LocalChatState()) {
     on<CheckModelStatusEvent>(_onCheckStatus);
     on<StartDownloadModelEvent>(_onDownloadModel);
     on<SendUserMessageEvent>(_onSendMessage);

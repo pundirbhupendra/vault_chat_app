@@ -1,29 +1,38 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'chat_screen.dart';
-import 'local_chat_bloc.dart';
-import 'local_llm_repository.dart';
-
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const OfflineAiApp());
+
+  final ragRepository = RagRepository();
+  await ragRepository.initialize();
+
+  runApp(OfflineAiApp(ragRepository: ragRepository));
 }
 
 class OfflineAiApp extends StatelessWidget {
-  const OfflineAiApp({super.key});
+  final RagRepository ragRepository;
+
+  const OfflineAiApp({
+    super.key,
+    required this.ragRepository,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Offline AI Chat',
       theme: ThemeData.dark(useMaterial3: true),
-      home: RepositoryProvider(
-        create: (_) => LocalLlmRepository(),
-        child: BlocProvider(
-          create: (ctx) => LocalChatBloc(
-            repository: ctx.read<LocalLlmRepository>(),
-          )..add(CheckModelStatusEvent()),
-          child: const LocalChatScreen(),
+      home: RepositoryProvider.value(
+        value: ragRepository,
+        child: RepositoryProvider(
+          create: (_) => LocalLlmRepository(),
+          child: Builder(
+            builder: (context) => BlocProvider(
+              create: (_) => LocalChatBloc(
+                repository: context.read<LocalLlmRepository>(),
+                ragRepository: ragRepository,
+              )..add(CheckModelStatusEvent()),
+              child: const LocalChatScreen(),
+            ),
+          ),
         ),
       ),
     );
