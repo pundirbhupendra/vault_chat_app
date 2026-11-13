@@ -7,13 +7,6 @@ version: 1.0.0+1
 
 environment:
   sdk: ^3.12.2
-
-# Dependencies specify other packages that your package needs in order to work.
-# To automatically upgrade your package dependencies to the latest versions
-# consider running `flutter pub upgrade --major-versions`. Alternatively,
-# dependencies can be manually updated by changing the version numbers below to
-# the latest version available on pub.dev. To see which dependencies have newer
-# versions available, run `flutter pub outdated`.
 dependencies:
   flutter:
     sdk: flutter
@@ -24,7 +17,7 @@ dependencies:
   llamadart: ^0.16.3
   llamadart_llama_cpp_flutter: ^0.16.0
   flutter_bloc: ^8.1.6          # Reactive state management
-  dio: ^5.7.0                   # Model downloader with progress & cancel token
+  dio: ^5.7.0                   # Cloud API transport
   path_provider: ^2.1.4         # Local storage directory for the .gguf file
   flutter_markdown: ^0.7.4      # Renders code blocks, tables, and bold text in chat bubbles
   equatable: ^2.0.5
@@ -32,6 +25,7 @@ dependencies:
   background_downloader: ^9.5.9
   file_picker: ^13.3.0
   dart_vector_index: ^1.0.1
+  crypto: 3.0.7
 
 dev_dependencies:
   flutter_test:

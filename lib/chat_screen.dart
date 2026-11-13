@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'chat_message.dart';
 import 'local_chat_bloc.dart';
+import 'rag/document_management_screen.dart';
+import 'rag/rag_repository.dart';
 
 class LocalChatScreen extends StatefulWidget {
   const LocalChatScreen({super.key});
@@ -33,21 +35,45 @@ class _LocalChatScreenState extends State<LocalChatScreen> {
           children: [
             Icon(Icons.shield_outlined, size: 20, color: Colors.greenAccent),
             SizedBox(width: 8),
-            Text('Offline AI Chat (Qwen 1.5B)'),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text('AI Chat'),
+              ),
+            ),
           ],
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.folder_open_outlined),
+            tooltip: 'Local documents',
+            onPressed: () {
+              final ragRepository = context.read<RagRepository>();
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => RepositoryProvider.value(
+                    value: ragRepository,
+                    child: const DocumentManagementScreen(),
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.delete_outline),
             tooltip: 'Clear Context',
-            onPressed: () => context.read<LocalChatBloc>().add(ClearConversationEvent()),
+            onPressed: () =>
+                context.read<LocalChatBloc>().add(ClearConversationEvent()),
           ),
         ],
       ),
       body: BlocConsumer<LocalChatBloc, LocalChatState>(
         listener: (context, state) {
           if (state.status == EngineStatus.generating) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _scrollToBottom(),
+            );
           }
         },
         builder: (context, state) {
@@ -78,10 +104,21 @@ class _LocalChatScreenState extends State<LocalChatScreen> {
                   backgroundColor: Colors.red.shade900,
                   actions: [
                     TextButton(
-                      onPressed: () => context.read<LocalChatBloc>().add(CheckModelStatusEvent()),
+                      onPressed: () => context.read<LocalChatBloc>().add(
+                        CheckModelStatusEvent(),
+                      ),
                       child: const Text('RETRY'),
                     ),
                   ],
+                ),
+              if (state.warningMessage != null)
+                Card(
+                  color: Colors.orange.shade900,
+                  margin: const EdgeInsets.all(8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(state.warningMessage!),
+                  ),
                 ),
               Expanded(
                 child: state.messages.isEmpty
@@ -101,7 +138,10 @@ class _LocalChatScreenState extends State<LocalChatScreen> {
                         },
                       ),
               ),
-              _buildMessageInput(context, state.status == EngineStatus.generating),
+              _buildMessageInput(
+                context,
+                state.status == EngineStatus.generating,
+              ),
             ],
           );
         },
@@ -135,8 +175,9 @@ class _LocalChatScreenState extends State<LocalChatScreen> {
                   Text('Downloading... $pct%'),
                 ] else
                   FilledButton.icon(
-                    onPressed: () =>
-                        context.read<LocalChatBloc>().add(StartDownloadModelEvent()),
+                    onPressed: () => context.read<LocalChatBloc>().add(
+                      StartDownloadModelEvent(),
+                    ),
                     icon: const Icon(Icons.download),
                     label: const Text('Download Model'),
                   ),
@@ -159,9 +200,16 @@ class _LocalChatScreenState extends State<LocalChatScreen> {
                 controller: _inputController,
                 enabled: !isGenerating,
                 decoration: InputDecoration(
-                  hintText: isGenerating ? 'Generating on device...' : 'Ask anything offline...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  hintText: isGenerating
+                      ? 'Generating on device...'
+                      : 'Ask anything offline...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
                 onSubmitted: (_) => _send(context),
               ),
@@ -203,17 +251,42 @@ class _MessageBubble extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.all(14),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.82,
+        ),
         decoration: BoxDecoration(
           color: isUser ? Colors.blueAccent : Colors.grey.shade800,
           borderRadius: BorderRadius.circular(16),
         ),
         child: isUser
             ? Text(message.content, style: const TextStyle(color: Colors.white))
-            : MarkdownBody(
-                data: message.content.isEmpty && message.isStreaming
-                    ? '_Thinking..._'
-                    : message.content,
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MarkdownBody(
+                    data: message.content.isEmpty && message.isStreaming
+                        ? '_Thinking..._'
+                        : message.content,
+                  ),
+                  if (message.sources.isNotEmpty) ...[
+                    const Divider(height: 24),
+                    const Text(
+                      'Local sources',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    for (final source in message.sources)
+                      ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: Text(source.sourceLabel),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: SelectableText(source.text),
+                          ),
+                        ],
+                      ),
+                  ],
+                ],
               ),
       ),
     );

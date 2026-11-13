@@ -3,6 +3,7 @@ import 'package:background_downloader/background_downloader.dart';
 import 'package:llamadart/llamadart.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:vault_chat_app/model/model_spec.dart';
+import 'package:vault_chat_app/model/model_download_notifications.dart';
 import 'chat_message.dart';
 
 class LocalLlmRepository {
@@ -12,25 +13,7 @@ class LocalLlmRepository {
 
   ModelSpec get activeSpec => _activeSpec;
 
-  /// Initializes the background downloader database and OS notification templates
-  Future<void> initDownloader() async {
-    await FileDownloader().trackTasks();
-    FileDownloader().configureNotification(
-      running: const TaskNotification(
-        'Downloading Offline AI Model',
-        '{filename} • {progress} ({networkSpeed})',
-      ),
-      complete: const TaskNotification(
-        'AI Model Ready',
-        '{filename} is cached for 100% offline use.',
-      ),
-      paused: const TaskNotification(
-        'Download Paused',
-        'Tap to resume downloading {filename}',
-      ),
-      progressBar: true,
-    );
-  }
+  Future<void> initDownloader() => ModelDownloadNotifications.initialize();
 
   /// Resolves the storage path inside ApplicationSupport/models
   /// (Safe from iOS iCloud automatic backups and OS temp purges)
@@ -61,6 +44,9 @@ class LocalLlmRepository {
     required void Function(double progress) onProgress,
     required void Function(TaskStatus status) onStatus,
   }) async {
+    await ModelDownloadNotifications.initialize();
+    await ModelDownloadNotifications.requestPermission();
+
     final target = spec ?? _activeSpec;
     _activeSpec = target;
 
@@ -131,7 +117,10 @@ class LocalLlmRepository {
   }
 
   /// Streams generated tokens with a bounded conversation history.
-  Stream<String> streamChatCompletion(List<ChatMessage> history) {
+  Stream<String> streamChatCompletion(
+    List<ChatMessage> history, {
+    String? systemPrompt,
+  }) {
     final params = GenerationParams(
       temp: 0.7,
       topP: 0.9,
@@ -141,19 +130,26 @@ class LocalLlmRepository {
     );
 
     return _llama
-        .create(_toLlamaMessages(history), params: params)
+        .create(
+          _toLlamaMessages(history, systemPrompt: systemPrompt),
+          params: params,
+        )
         .map((chunk) => chunk.text);
   }
 
   /// Keeps the recent conversation within the configured context window.
-  List<LlamaChatMessage> _toLlamaMessages(List<ChatMessage> history) {
+  List<LlamaChatMessage> _toLlamaMessages(
+    List<ChatMessage> history, {
+    String? systemPrompt,
+  }) {
     final recentMessages = history.length > 6
         ? history.sublist(history.length - 6)
         : history;
     return [
-      const LlamaChatMessage.fromText(
+      LlamaChatMessage.fromText(
         role: LlamaChatRole.system,
         text:
+            systemPrompt ??
             'You are a helpful, concise AI assistant running 100% offline on the user\'s phone.',
       ),
       for (final msg in recentMessages)
